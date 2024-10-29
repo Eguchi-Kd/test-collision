@@ -8,9 +8,9 @@ const img1 = new Image();
 const img2 = new Image();
 
 
-img1.src = 'sample1.png'; // 画像1のパスを指定
+img1.src = 'IMG_0046.png'; // 画像1のパスを指定
 
-img2.src = 'sample2.png'; // 画像2のパスを指定
+img2.src = 'IMG_0047.png'; // 画像2のパスを指定
 
 
 let pos1 = { x: 0, y: 200 }; // 画像1の初期位置
