@@ -1,33 +1,32 @@
 <!DOCTYPE html>
-
 <html lang="ja">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>当たり判定サンプル</title>
-
+    <title>動物タワーバトル風ゲーム</title>
     <style>
-
         canvas {
-
             border: 1px solid black;
-
         }
-
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #uploadSection {
+            margin: 10px;
+        }
     </style>
-
 </head>
-
 <body>
-
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-
+    <div id="uploadSection">
+        <input type="file" id="imageUploader" accept="image/*">
+        <button id="dropButton" disabled>動物を落とす</button>
+    </div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
     <script src="script.js"></script>
-
 </body>
-
 </html>
