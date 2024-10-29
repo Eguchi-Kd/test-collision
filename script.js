@@ -1,237 +1,171 @@
 const canvas = document.getElementById('gameCanvas');
-
 const ctx = canvas.getContext('2d');
+const gravity = 0.3; // 重力
+const shapes = []; // 落下する形状を格納
+let isGameOver = false;
+let currentImage = null; // 現在の画像
+let currentHitboxes = []; // 画像のエッジヒットボックス
 
+// 形状のクラス
+class Shape {
+    constructor(image, hitboxes, x, y, size) {
+        this.image = image;
+        this.hitboxes = hitboxes.map(hb => ({ x: hb.x + x - size / 2, y: hb.y + y - size / 2 }));
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.dy = 0; // y方向の速度
+    }
 
-const img1 = new Image();
+    draw() {
+        ctx.drawImage(this.image, this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+    }
 
-const img2 = new Image();
+    update() {
+        if (!isGameOver) {
+            this.dy += gravity;
+            this.y += this.dy;
 
+            // 当たり判定の位置を更新
+            this.hitboxes.forEach(hitbox => hitbox.y += this.dy);
 
-img1.src = 'IMG_0046.png'; // 画像1のパスを指定
+            // 底にぶつかったら停止
+            if (this.y + this.size / 2 >= canvas.height) {
+                this.y = canvas.height - this.size / 2;
+                this.dy = 0;
+                this.addToStack();
+            }
 
-img2.src = 'IMG_0047.png'; // 画像2のパスを指定
+            // 他の形状にぶつかったら停止
+            for (let shape of shapes) {
+                if (shape !== this && this.isColliding(shape)) {
+                    this.y -= this.dy;
+                    this.dy = 0;
+                    this.addToStack();
+                    break;
+                }
+            }
+        }
+        this.draw();
+    }
 
+    isColliding(other) {
+        return this.hitboxes.some(hb1 => other.hitboxes.some(hb2 => Math.hypot(hb1.x - hb2.x, hb1.y - hb2.y) < 1));
+    }
 
-let pos1 = { x: 0, y: 200 }; // 画像1の初期位置
+    addToStack() {
+        shapes.push(this);
+        checkGameOver();
+        if (!isGameOver) {
+            document.getElementById('dropButton').disabled = true;
+            currentImage = null;
+            currentHitboxes = [];
+        }
+    }
+}
 
-let pos2 = { x: 350, y: 200 }; // 画像2の初期位置
+// 新しい形状を生成
+function spawnShape() {
+    if (currentImage && currentHitboxes.length) {
+        const size = 60;
+        const x = canvas.width / 2;
+        const shape = new Shape(currentImage, currentHitboxes, x, size / 2, size);
+        shapes.push(shape);
+    }
+}
 
-const speed = 2; // 移動速度
+// ゲームオーバー判定
+function checkGameOver() {
+    if (shapes.some(shape => shape.y - shape.size / 2 <= 0)) {
+        isGameOver = true;
+        alert("ゲームオーバー！");
+    }
+}
 
+// 更新ループ
+function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    shapes.forEach(shape => shape.update());
+    if (!isGameOver) {
+        requestAnimationFrame(update);
+    }
+}
 
-let hitboxes1 = [];
+// 初期設定
+update();
 
-let hitboxes2 = [];
+// ファイルアップロード処理
+document.getElementById('imageUploader').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                createHitboxes(img, (hitboxes) => {
+                    currentImage = img;
+                    currentHitboxes = hitboxes;
+                    document.getElementById('dropButton').disabled = false;
+                });
+            };
+        };
+        reader.readAsDataURL(file);
+    }
+});
 
+// クリックで形状を落とす
+document.getElementById('dropButton').addEventListener('click', () => {
+    if (currentImage && currentHitboxes.length) {
+        spawnShape();
+    }
+});
 
-img1.onload = img2.onload = () => {
-
-    createHitboxes(img1, (boxes) => {
-
-        hitboxes1 = boxes; // 画像1のヒットボックスを保存
-
-    });
-
-    createHitboxes(img2, (boxes) => {
-
-        hitboxes2 = boxes; // 画像2のヒットボックスを保存
-
-    });
-
-    requestAnimationFrame(update);
-
-};
-
-
+// ヒットボックス生成関数
 function createHitboxes(image, callback) {
-
     const width = image.width;
-
     const height = image.height;
 
-
-    // オフスクリーンキャンバスを作成
-
     const offscreenCanvas = document.createElement('canvas');
-
     offscreenCanvas.width = width;
-
     offscreenCanvas.height = height;
-
     const offscreenCtx = offscreenCanvas.getContext('2d');
-
     offscreenCtx.drawImage(image, 0, 0);
 
-
     const imageData = offscreenCtx.getImageData(0, 0, width, height).data;
-
     const hitboxes = [];
 
-
-    // エッジピクセルを探すために周囲8方向を調べる
-
     for (let y = 0; y < height; y++) {
-
         for (let x = 0; x < width; x++) {
-
             const index = (y * width + x) * 4;
-
             const alpha = imageData[index + 3];
 
-
-            // 透明でないピクセルかどうかチェック
-
             if (alpha > 0) {
-
                 let isEdgePixel = false;
-
-
-                // 8方向（上下左右および斜め）の隣接ピクセルをチェック
-
                 const directions = [
-
-                    { dx: -1, dy: 0 },  // 左
-
-                    { dx: 1, dy: 0 },   // 右
-
-                    { dx: 0, dy: -1 },  // 上
-
-                    { dx: 0, dy: 1 },   // 下
-
-                    { dx: -1, dy: -1 }, // 左上
-
-                    { dx: 1, dy: -1 },  // 右上
-
-                    { dx: -1, dy: 1 },  // 左下
-
-                    { dx: 1, dy: 1 }    // 右下
-
+                    { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+                    { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
+                    { dx: -1, dy: -1 }, { dx: 1, dy: -1 },
+                    { dx: -1, dy: 1 }, { dx: 1, dy: 1 }
                 ];
 
-
                 for (const { dx, dy } of directions) {
-
                     const nx = x + dx;
-
                     const ny = y + dy;
 
-
-                    // 隣接ピクセルが範囲外か透明であればエッジピクセルと判定
-
                     if (nx < 0 || ny < 0 || nx >= width || ny >= height ||
-
                         imageData[(ny * width + nx) * 4 + 3] === 0) {
-
                         isEdgePixel = true;
-
                         break;
-
                     }
-
                 }
-
-
-                // エッジピクセルならヒットボックスに追加
 
                 if (isEdgePixel) {
-
                     hitboxes.push({ x, y });
-
                 }
-
             }
-
         }
-
     }
-
 
     callback(hitboxes);
-
-}
-
-
-function update() {
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-
-    // 画像を描画
-
-    ctx.drawImage(img1, pos1.x, pos1.y);
-
-    ctx.drawImage(img2, pos2.x, pos2.y);
-
-
-    // 当たり判定を示す矩形を描画
-
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // 半透明の赤
-
-    hitboxes1.forEach(box => {
-
-        ctx.fillRect(pos1.x + box.x, pos1.y + box.y, 1, 1); // 画像1の当たり判定
-
-    });
-
-    hitboxes2.forEach(box => {
-
-        ctx.fillRect(pos2.x + box.x, pos2.y + box.y, 1, 1); // 画像2の当たり判定
-
-    });
-
-
-    // 衝突判定
-
-    if (isColliding(hitboxes1, pos1, hitboxes2, pos2)) {
-
-        alert("衝突!");
-
-        return; // アラート後は更新を停止
-
-    }
-
-
-    // 画像1を右に移動
-
-    pos1.x += speed;
-
-    // 画像2を左に移動
-
-    pos2.x -= speed;
-
-
-    requestAnimationFrame(update);
-
-}
-
-
-function isColliding(hitboxes1, pos1, hitboxes2, pos2) {
-
-    for (let box1 of hitboxes1) {
-
-        for (let box2 of hitboxes2) {
-
-            if (
-
-                pos1.x + box1.x < pos2.x + box2.x + 1 &&
-
-                pos1.x + box1.x + 1 > pos2.x + box2.x &&
-
-                pos1.y + box1.y < pos2.y + box2.y + 1 &&
-
-                pos1.y + box1.y + 1 > pos2.y + box2.y
-
-            ) {
-
-                return true; // 衝突が検出された
-
-            }
-
-        }
-
-    }
-
-    return false; // 衝突なし
-
 }
