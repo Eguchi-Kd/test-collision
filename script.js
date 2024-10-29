@@ -57,9 +57,7 @@ class Shape {
         shapes.push(this);
         checkGameOver();
         if (!isGameOver) {
-            document.getElementById('dropButton').disabled = true;
-            currentImage = null;
-            currentHitboxes = [];
+            promptNextImageUpload();
         }
     }
 }
@@ -118,6 +116,7 @@ document.getElementById('imageUploader').addEventListener('change', (event) => {
 document.getElementById('dropButton').addEventListener('click', () => {
     if (currentImage && currentHitboxes.length) {
         spawnShape();
+        document.getElementById('dropButton').disabled = true; // ボタンを無効化
     }
 });
 
@@ -168,4 +167,10 @@ function createHitboxes(image, callback) {
     }
 
     callback(hitboxes);
+}
+
+// 次の画像をアップロードするように促す
+function promptNextImageUpload() {
+    alert("次の動物の画像をアップロードしてください。");
+    document.getElementById('imageUploader').click();
 }
